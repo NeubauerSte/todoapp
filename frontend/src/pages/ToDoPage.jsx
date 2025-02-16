@@ -1,92 +1,90 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ⬅️ IMPORT HINZUFÜGEN!
+import { useEffect, useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import ToDoList from "../components/ToDoList";
-import { Container, Row, Col, Form, Button } from "react-bootstrap";
+import BackButton from "../components/BackButton";
+import LogoutButton from "../components/LogoutButton";
 
-function ToDoPage() {
+const ToDoPage = () => {
+    const { isAuthenticated } = useContext(AuthContext);
     const [todos, setTodos] = useState([]);
     const [newTodo, setNewTodo] = useState("");
-    const navigate = useNavigate(); // ⬅️ NAVIGATION HINZUFÜGEN!
+    const navigate = useNavigate();
 
     useEffect(() => {
+        if (!isAuthenticated) {
+            navigate("/login");
+            return;
+        }
+
         fetch("http://localhost:8080/todos", {
             method: "GET",
-            credentials: "include", // Session mit Cookies senden!
-            headers: { "Content-Type": "application/json" },
+            credentials: "include",
         })
-            .then((response) => {
-                if (response.status === 401) { // ⬅️ Falls nicht authentifiziert
-                    navigate("/login"); // ⬅️ Zur Login-Seite umleiten!
+            .then((response) => response.json())
+            .then((data) => {
+                if (!Array.isArray(data)) {
+                    console.error("Fehler: Erwartete ein Array von Todos", data);
                     return;
                 }
-                return response.json();
+                setTodos(data);
             })
-            .then((data) => setTodos(data))
-            .catch((error) => console.error("Fehler beim Laden der Todos:", error));
-    }, [navigate]);
+            .catch((error) => console.error("Fehler beim Abrufen der Todos:", error));
+    }, [isAuthenticated, navigate]);
 
     const addTodo = () => {
-        if (!newTodo.trim()) return; // Leere Eingaben verhindern
+        if (!newTodo.trim()) return;
 
         fetch("http://localhost:8080/todos", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include", // WICHTIG: Session mit senden
+            credentials: "include",
             body: JSON.stringify({ title: newTodo }),
         })
-            .then((response) => {
-                if (response.status === 401) {
-                    navigate("/login"); // Falls nicht authentifiziert, zurück zur Login-Seite
+            .then((response) => response.json())
+            .then((data) => {
+                if (!data || !data.id || !data.title) {
+                    console.error("Fehlerhafte Antwort vom Server:", data);
                     return;
                 }
-                return response.json();
+                setTodos([...todos, { id: data.id, title: data.title }]);
             })
-            .then((data) => setTodos([...todos, data]))
             .catch((error) => console.error("Fehler beim Speichern:", error));
 
         setNewTodo("");
     };
 
     const deleteTodo = (id) => {
+        if (!id) {
+            console.error("Fehler: Todo-ID ist undefined");
+            return;
+        }
+
         fetch(`http://localhost:8080/todos/${id}`, {
             method: "DELETE",
-            credentials: "include", // WICHTIG: Session mit senden
+            credentials: "include",
         })
-            .then((response) => {
-                if (response.status === 401) {
-                    navigate("/login"); // Falls nicht authentifiziert, zurück zur Login-Seite
-                    return;
-                }
+            .then(() => {
                 setTodos(todos.filter(todo => todo.id !== id));
             })
             .catch((error) => console.error("Fehler beim Löschen:", error));
     };
 
     return (
-        <Container className="mt-5">
-            <Row className="justify-content-center">
-                <Col md={8}>
-                    <h1 className="text-center mb-4">📝 Meine To-Do Liste</h1>
-
-                    {/* Eingabefeld und Button */}
-                    <Form onSubmit={(e) => e.preventDefault()} className="d-flex mb-3">
-                        <Form.Control
-                            type="text"
-                            placeholder="Neues Todo..."
-                            value={newTodo}
-                            onChange={(e) => setNewTodo(e.target.value)}
-                        />
-                        <Button variant="primary" className="ms-2" onClick={addTodo}>
-                            ➕ Hinzufügen
-                        </Button>
-                    </Form>
-
-                    {/* ToDoList-Komponente */}
-                    <ToDoList todos={todos} deleteTodo={deleteTodo} />
-                </Col>
-            </Row>
-        </Container>
+        <div className="page-container">
+            <BackButton redirectTo="/" />
+            <LogoutButton />
+            <h1>Meine Todos</h1>
+            <input
+                type="text"
+                value={newTodo}
+                onChange={(e) => setNewTodo(e.target.value)}
+                placeholder="Neues Todo..."
+            />
+            <button onClick={addTodo}>Hinzufügen</button>
+            <ToDoList todos={todos} deleteTodo={deleteTodo} />
+        </div>
     );
-}
+};
 
 export default ToDoPage;

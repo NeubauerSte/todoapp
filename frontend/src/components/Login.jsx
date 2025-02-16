@@ -1,56 +1,62 @@
-// src/components/Login.jsx
-import { useState } from 'react';
-import useLocalStorage from '../hooks/useLocalStorage';
+import { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 
-function Login({ onLogin }) {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [_storedUsername, setStoredUsername] = useLocalStorage('username', '');
+function Login() {
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState(null);
+    const navigate = useNavigate();
+    const { checkAuthStatus } = useContext(AuthContext);
 
-    const handleSubmit = async (event) => {
+    const handleLogin = async (event) => {
         event.preventDefault();
+        setError(null);
+
         try {
-            const response = await fetch('http://localhost:8080/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+            const response = await fetch("http://localhost:8080/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ username, password }),
-                credentials: 'include', // Wichtig: Session-Cookies senden
             });
 
             if (response.ok) {
-                setStoredUsername(username);
-                onLogin();
+                await checkAuthStatus(); // Aktualisiert den Auth-Status
+                navigate("/todos");
             } else {
                 const errorText = await response.text();
-                alert('Fehler: ' + errorText); // Zeigt die Fehlermeldung vom Server an
+                setError(errorText || "Login fehlgeschlagen!");
             }
-        } catch (error) {
-            console.error('Fehler bei der Anmeldung:', error);
-            alert('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.');
+        } catch (err) {
+            console.error("Fehler beim Login:", err);
+            setError("Netzwerkfehler! Server nicht erreichbar.");
         }
     };
 
-
     return (
-        <form onSubmit={handleSubmit}>
-            <input
-                type="text"
-                placeholder="Benutzername"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-            />
-            <input
-                type="password"
-                placeholder="Passwort"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-            />
-            <button type="submit">Anmelden</button>
-        </form>
+        <div className="page-container">
+            <h2>🔑 Login</h2>
+            {error && <p className="error-text">{error}</p>}
+            <form onSubmit={handleLogin}>
+                <input
+                    type="text"
+                    placeholder="Benutzername"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                />
+                <input
+                    type="password"
+                    placeholder="Passwort"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                />
+                <button type="submit">Einloggen</button>
+            </form>
+            <p>Kein Konto? <a href="/register">Hier registrieren</a></p>
+        </div>
     );
 }
 

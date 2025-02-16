@@ -13,9 +13,22 @@ public class ToDo {
     private Long id;
     private String title;
 
-    public
-    Long getId ( ) {return id;}
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private Account account;
 
     public
-    String getTitle ( ) {return title;}
+    Long getId ( ) {
+        return id;
+    }
+
+    public
+    String getTitle ( ) {
+        return title;
+    }
+
+    public
+    Account getAccount ( ) {
+        return account;
+    }
 }

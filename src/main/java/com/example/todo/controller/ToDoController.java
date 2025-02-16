@@ -1,49 +1,74 @@
 package com.example.todo.controller;
 
+import com.example.todo.model.Account;
 import com.example.todo.model.ToDo;
+import com.example.todo.repository.AccountRepository;
 import com.example.todo.repository.ToDoRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Collections;
 import java.util.List;
 
 @RestController
 @RequestMapping("/todos")
 public class ToDoController {
 
-    private static final Logger logger = LoggerFactory.getLogger(ToDoController.class);
+    private final ToDoRepository toDoRepository;
+    private final AccountRepository accountRepository;
 
-    private ToDoRepository repository;
+    public ToDoController(ToDoRepository toDoRepository, AccountRepository accountRepository) {
+        this.toDoRepository = toDoRepository;
+        this.accountRepository = accountRepository;
+    }
 
-    public
-    ToDoController ( ToDoRepository repository ) {
-        this.repository = repository;
+    // ✅ Nur eigene Todos abrufen
+    @GetMapping
+    public ResponseEntity<List<ToDo>> getUserTodos(Authentication authentication) {
+        Account account = accountRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new UsernameNotFoundException("Benutzer nicht gefunden"));
+
+        return ResponseEntity.ok(toDoRepository.findByAccount(account));
     }
 
     @PostMapping
-    public ToDo create(@RequestBody ToDo todo) {
-        logger.info ( "Neues Todo wird erstellt: {}" , todo.getTitle ( ) );
-        return repository.save(todo);
+    public ResponseEntity<ToDo> createTodo(@RequestBody ToDo todo, Authentication authentication) {
+        Account account = accountRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new UsernameNotFoundException("Benutzer nicht gefunden"));
+
+        todo.setAccount(account); // To-Do mit Benutzer verknüpfen
+        ToDo savedTodo = toDoRepository.save(todo); // Speichern und Rückgabe des gespeicherten Objekts
+
+        return ResponseEntity.ok(savedTodo);
     }
 
-    @GetMapping
-    public List< ToDo > getAll ( ) {
-        logger.info("Alle Todos werden abgerufen");
-        return repository.findAll();
-    }
+
 
     @DeleteMapping("/{id}")
-    public
-    ResponseEntity <?> delete ( @PathVariable("id") Long id ) {
-        if (!repository.existsById(id)) {
-            return ResponseEntity.status ( HttpStatus.NOT_FOUND ).body ( "Todo nicht gefunden!" );
+    public ResponseEntity<?> deleteTodo(@PathVariable("id") Long id, Authentication authentication) {
+        // Pickt den richtigen Account
+        Account account = accountRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new UsernameNotFoundException("Benutzer nicht gefunden"));
+
+        // Holt das To-Do aus der Datenbank, ansonsten NOT_FOUND Response
+        ToDo todo = toDoRepository.findById(id)
+                .orElseThrow(() -> {
+                    System.out.println("Löschversuch für nicht vorhandenes ToDo mit ID: " + id);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "ToDo nicht gefunden: " + id);
+                });
+
+
+        // Vergleicht den eingeloggten Account mit Besitzer des TODOS
+        if (!todo.getAccount().getId().equals(account.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Nicht erlaubt, fremde Todos zu löschen!");
         }
-        logger.warn ( "Todo mit ID {} wird gelöscht!" , id );
-        repository.deleteById(id);
-        return ResponseEntity.ok("Todo gelöscht!");
+
+        toDoRepository.delete(todo);
+        return ResponseEntity.ok("ToDo gelöscht!");
     }
 
 }
