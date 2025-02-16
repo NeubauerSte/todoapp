@@ -23,6 +23,7 @@ const GeneralButton = ({ action, position, emoji }) => {
                 .then((response) => {
                     if (response.ok) {
                         navigate("/");
+                        checkAuthStatus();
                     } else {
                         console.error("Fehler beim Logout");
                     }
