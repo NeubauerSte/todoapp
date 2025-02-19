@@ -1,22 +1,14 @@
 plugins {
+    id 'org.springframework.boot' version '3.2.2'
+    id 'io.spring.dependency-management' version '1.1.4'
     id 'java'
-    id 'org.springframework.boot' version '3.4.2'
-    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-configurations {
-    compileOnly {
-        extendsFrom annotationProcessor
-    }
+    sourceCompatibility = '17'
 }
 
 repositories {
@@ -24,15 +16,31 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // Spring Boot Starter Web für REST API
     implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Spring Boot Starter für Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // Spring Boot Starter für JPA (Datenbankzugriff)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // PostgreSQL JDBC Driver
+    implementation 'org.postgresql:postgresql'
+
+    // Spring Boot Starter für Validierung
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Spring Boot Starter für Thymeleaf (falls du es brauchst)
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+    // Lombok für weniger Boilerplate-Code
     compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'com.h2database:h2'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // JUnit für Tests
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 tasks.named('test') {

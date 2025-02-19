@@ -1,39 +1,54 @@
 import { useEffect, useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
 import ToDoList from "../components/ToDoList";
-import BackButton from "../components/BackButton";
-import LogoutButton from "../components/LogoutButton";
+import { AuthContext } from "../context/AuthContext";
+import logEvent from "../utils/logEvent";
+import BackButton from "../components/BackButton.jsx";
+import LogoutButton from "../components/LogoutButton.jsx";
 
 const ToDoPage = () => {
-    const { isAuthenticated } = useContext(AuthContext);
     const [todos, setTodos] = useState([]);
     const [newTodo, setNewTodo] = useState("");
     const navigate = useNavigate();
+    const { isAuthenticated } = useContext(AuthContext);
 
     useEffect(() => {
         if (!isAuthenticated) {
+            logEvent("WARNING", "Nicht authentifizierter Zugriff auf ToDoPage, Weiterleitung zur Login-Seite.");
             navigate("/login");
             return;
         }
 
+        logEvent("INFO", "Lade Todos...");
         fetch("http://localhost:8080/todos", {
             method: "GET",
             credentials: "include",
         })
-            .then((response) => response.json())
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Fehler: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then((data) => {
                 if (!Array.isArray(data)) {
-                    console.error("Fehler: Erwartete ein Array von Todos", data);
-                    return;
+                    throw new Error("Unerwartetes Datenformat");
                 }
                 setTodos(data);
+                logEvent("SUCCESS", "Todos erfolgreich geladen", { todoCount: data.length });
             })
-            .catch((error) => console.error("Fehler beim Abrufen der Todos:", error));
+            .catch((error) => {
+                logEvent("ERROR", "Fehler beim Abrufen der Todos", error);
+            });
     }, [isAuthenticated, navigate]);
 
     const addTodo = () => {
-        if (!newTodo.trim()) return;
+        if (!newTodo.trim()) {
+            logEvent("WARNING", "Leeres Todo kann nicht hinzugefügt werden.");
+            return;
+        }
+
+        logEvent("INFO", "Neues Todo wird hinzugefügt", { title: newTodo });
 
         fetch("http://localhost:8080/todos", {
             method: "POST",
@@ -41,38 +56,52 @@ const ToDoPage = () => {
             credentials: "include",
             body: JSON.stringify({ title: newTodo }),
         })
-            .then((response) => response.json())
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Fehler beim Speichern des Todos");
+                }
+                return response.json();
+            })
             .then((data) => {
                 if (!data || !data.id || !data.title) {
-                    console.error("Fehlerhafte Antwort vom Server:", data);
-                    return;
+                    throw new Error("Ungültige Serverantwort");
                 }
                 setTodos([...todos, { id: data.id, title: data.title }]);
+                setNewTodo("");
+                logEvent("SUCCESS", "Todo erfolgreich gespeichert", { id: data.id, title: data.title });
             })
-            .catch((error) => console.error("Fehler beim Speichern:", error));
-
-        setNewTodo("");
+            .catch((error) => {
+                logEvent("ERROR", "Fehler beim Speichern des Todos", error);
+            });
     };
 
     const deleteTodo = (id) => {
         if (!id) {
-            console.error("Fehler: Todo-ID ist undefined");
+            logEvent("ERROR", "Ungültige Todo-ID beim Löschen");
             return;
         }
+
+        logEvent("INFO", "Todo wird gelöscht", { id });
 
         fetch(`http://localhost:8080/todos/${id}`, {
             method: "DELETE",
             credentials: "include",
         })
-            .then(() => {
-                setTodos(todos.filter(todo => todo.id !== id));
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Fehler beim Löschen des Todos");
+                }
+                setTodos(todos.filter((todo) => todo.id !== id));
+                logEvent("SUCCESS", "Todo erfolgreich gelöscht", { id });
             })
-            .catch((error) => console.error("Fehler beim Löschen:", error));
+            .catch((error) => {
+                logEvent("ERROR", "Fehler beim Löschen des Todos", error);
+            });
     };
 
     return (
         <div className="page-container">
-            <BackButton redirectTo="/" />
+            <BackButton />
             <LogoutButton />
             <h1>Meine Todos</h1>
             <input
@@ -81,7 +110,8 @@ const ToDoPage = () => {
                 onChange={(e) => setNewTodo(e.target.value)}
                 placeholder="Neues Todo..."
             />
-            <button onClick={addTodo}>Hinzufügen</button>
+            <button onClick={addTodo}>➕ Hinzufügen</button>
+
             <ToDoList todos={todos} deleteTodo={deleteTodo} />
         </div>
     );

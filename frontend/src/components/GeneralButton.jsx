@@ -1,34 +1,27 @@
-import {useContext, useEffect, useState} from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {AuthContext} from "../context/AuthContext.jsx";
+import { AuthContext } from "../context/AuthContext";
+import logEvent from "../utils/logEvent";
+import logout from "../components/Logout"; // Prüfe den Importpfad
 
 const GeneralButton = ({ action, position, emoji }) => {
     const navigate = useNavigate();
     const [visible, setVisible] = useState(false);
-    const { checkAuthStatus } = useContext(AuthContext)
+    const { checkAuthStatus } = useContext(AuthContext);
 
     useEffect(() => {
         const timeout = setTimeout(() => setVisible(true), 1000);
         return () => clearTimeout(timeout);
     }, []);
 
-    const handleClick = () => {
+    const handleClick = async () => {
         if (action === "back") {
-            setTimeout(() => navigate("/"), 300); // Kleiner Delay, um sicherzugehen            checkAuthStatus(); // ⬅️ Stelle sicher, dass der Status erneut überprüft wird
+            logEvent("INFO", "Zurück zur Startseite");
+            await checkAuthStatus();
+            setTimeout(() => navigate("/"), 300);
         } else if (action === "logout") {
-            fetch("http://localhost:8080/api/auth/logout", {
-                method: "POST",
-                credentials: "include",
-            })
-                .then((response) => {
-                    if (response.ok) {
-                        navigate("/");
-                        checkAuthStatus();
-                    } else {
-                        console.error("Fehler beim Logout");
-                    }
-                })
-                .catch((error) => console.error("Netzwerkfehler:", error));
+            logEvent("INFO", "Logout-Klick erkannt");
+            await logout(navigate, checkAuthStatus);
         }
     };
 

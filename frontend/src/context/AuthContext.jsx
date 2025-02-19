@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, useCallback } from "react";
+import { createContext, useState, useEffect } from "react";
+import logEvent from "../utils/logEvent";
 
 export const AuthContext = createContext();
 
@@ -7,44 +8,63 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const checkAuthStatus = useCallback(async () => {
+    const checkAuthStatus = async () => {
         try {
             const response = await fetch("http://localhost:8080/api/auth/check", {
                 credentials: "include",
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log("Raw Server Response:", data); // Debugging
+            if (!response.ok) throw new Error("Nicht authentifiziert");
 
-                if (data) {
-                    setIsAuthenticated(true);
-                    setUser(data);
-                } else {
-                    setIsAuthenticated(false);
-                    setUser(null);
-                }
+            const data = await response.json();
+            if (data) {
+                logEvent("Auth", `User authentifiziert: ${data.username}`);
+                setIsAuthenticated(true);
+                setUser(data);
             } else {
-                console.log("Fehlerhafte Server-Antwort:", response.status);
+                logEvent("Auth", "Keine gültigen User-Daten erhalten.");
                 setIsAuthenticated(false);
                 setUser(null);
             }
-        }
-        catch (error) {
-            console.error("Fehler beim Auth-Check:", error);
+        } catch (error) {
+            logEvent("Auth Fehler", error.message);
             setIsAuthenticated(false);
             setUser(null);
         } finally {
             setLoading(false);
         }
-    }, []);
+    };
+
+    const login = async (username, password) => {
+        try {
+            const response = await fetch("http://localhost:8080/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (!response.ok) throw new Error("Login fehlgeschlagen");
+
+            const data = await response.json();
+            setIsAuthenticated(true);
+            setUser(data);
+            logEvent("Login", `Erfolgreich eingeloggt als ${data.username}`);
+            return { success: true };
+        } catch (error) {
+            logEvent("Login Fehler", error.message);
+            return { success: false, error: error.message };
+        }
+    };
 
     useEffect(() => {
-        checkAuthStatus().catch(error => console.error("Auth-Check Fehler:", error));
-    }, [isAuthenticated]);
+        (async () => {
+            await checkAuthStatus();
+        })();
+    }, []);
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, user, setUser, checkAuthStatus, loading }}>
+        <AuthContext.Provider value={{ isAuthenticated, user, checkAuthStatus, login, loading }}>
             {children}
         </AuthContext.Provider>
     );

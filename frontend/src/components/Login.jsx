@@ -1,63 +1,50 @@
 import { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import logEvent from "../utils/logEvent";
 
-function Login() {
+const Login = () => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState(null);
+    const { login } = useContext(AuthContext);
     const navigate = useNavigate();
-    const { checkAuthStatus } = useContext(AuthContext);
 
     const handleLogin = async (event) => {
         event.preventDefault();
-        setError(null);
+        logEvent("INFO", "Login-Versuch", { username });
 
         try {
-            const response = await fetch("http://localhost:8080/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ username, password }),
-            });
-
-            if (response.ok) {
-                await checkAuthStatus(); // Aktualisiert den Auth-Status
+            const success = await login(username, password);
+            if (success) {
+                logEvent("SUCCESS", "Login erfolgreich", { username });
                 navigate("/todos");
             } else {
-                const errorText = await response.text();
-                setError(errorText || "Login fehlgeschlagen!");
+                logEvent("ERROR", "Login fehlgeschlagen", { username });
             }
-        } catch (err) {
-            console.error("Fehler beim Login:", err);
-            setError("Netzwerkfehler! Server nicht erreichbar.");
+        } catch (error) {
+            logEvent("ERROR", "Fehler beim Login", error);
         }
     };
 
     return (
-        <div className="page-container">
-            <h2>🔑 Login</h2>
-            {error && <p className="error-text">{error}</p>}
-            <form onSubmit={handleLogin}>
-                <input
-                    type="text"
-                    placeholder="Benutzername"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                />
-                <input
-                    type="password"
-                    placeholder="Passwort"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                />
-                <button type="submit">Einloggen</button>
-            </form>
-            <p>Kein Konto? <a href="/register">Hier registrieren</a></p>
-        </div>
+        <form onSubmit={handleLogin} className="auth-form">
+            <input
+                type="text"
+                placeholder="Benutzername"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+            />
+            <input
+                type="password"
+                placeholder="Passwort"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+            />
+            <button type="submit">🔑 Login</button>
+        </form>
     );
-}
+};
 
 export default Login;

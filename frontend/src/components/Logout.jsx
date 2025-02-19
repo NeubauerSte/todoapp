@@ -1,37 +1,26 @@
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
+import logEvent from "../utils/logEvent";
 
-const Logout = () => {
-    const navigate = useNavigate();
-    const { isAuthenticated, checkAuthStatus } = useContext(AuthContext);
+const logout = async (navigate, checkAuthStatus) => {
+    try {
+        logEvent("INFO", "Logout wird ausgeführt...");
+        const response = await fetch("http://localhost:8080/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+        });
 
-    if (!isAuthenticated) return null; // Keine Anzeige für nicht eingeloggte User
-
-    const handleLogout = async () => {
-        try {
-            const response = await fetch("http://localhost:8080/api/auth/logout", {
-                method: "POST",
-                credentials: "include",
-            });
-
-            if (response.ok) {
-                console.log("Erfolgreich ausgeloggt");
-                checkAuthStatus(); // Auth-Status aktualisieren
-                navigate("/"); // Zur Startseite
-            } else {
-                console.error("Fehler beim Logout:", await response.text());
-            }
-        } catch (error) {
-            console.error("Netzwerkfehler beim Logout:", error);
+        if (response.ok) {
+            logEvent("SUCCESS", "Logout erfolgreich");
+            await checkAuthStatus();
+            navigate("/");
+        } else {
+            logEvent("ERROR", "Logout fehlgeschlagen");
         }
-    };
-
-    return (
-        <button className="logout-button" onClick={handleLogout}>
-            🚪 Logout
-        </button>
-    );
+    } catch (error) {
+        logEvent("ERROR", "Fehler beim Logout", error);
+    }
 };
 
-export default Logout;
+export default logout;
