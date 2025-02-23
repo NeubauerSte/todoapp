@@ -1,14 +1,16 @@
 plugins {
+    id 'java'
     id 'org.springframework.boot' version '3.2.2'
     id 'io.spring.dependency-management' version '1.1.4'
-    id 'java'
+    id 'io.freefair.lombok' version '8.6'
 }
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 
 java {
-    sourceCompatibility = '17'
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 repositories {
@@ -16,26 +18,27 @@ repositories {
 }
 
 dependencies {
-    // Spring Boot Starter Web für REST API
+    // Spring Boot Web für REST API
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
-    // Spring Boot Starter für Security
+    // Spring Boot Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // Spring Boot Starter für JPA (Datenbankzugriff)
+    // Logging mit SLF4J & Logback
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    implementation 'ch.qos.logback:logback-classic:1.4.12'
+
+    // Spring Boot JPA für DB-Zugriff
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    // PostgreSQL JDBC Driver
+    // PostgreSQL JDBC Treiber
     implementation 'org.postgresql:postgresql'
 
-    // Spring Boot Starter für Validierung
+    // Validierung
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // Spring Boot Starter für Thymeleaf (falls du es brauchst)
-    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
-
     // Lombok für weniger Boilerplate-Code
-    compileOnly 'org.projectlombok:lombok'
+    implementation 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     // JUnit für Tests
@@ -45,4 +48,16 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.register("dockerComposeUp", Exec) {
+    group = "docker"
+    description = "Startet Docker-Container für Backend & Datenbank"
+    commandLine "sh", "-c", "docker-compose up --build -d"
+}
+
+tasks.register("dockerComposeDown", Exec) {
+    group = "docker"
+    description = "Stoppt und entfernt die Docker-Container"
+    commandLine "sh", "-c", "docker-compose down"
 }

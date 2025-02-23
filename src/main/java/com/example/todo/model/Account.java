@@ -1,12 +1,17 @@
 package com.example.todo.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
-@Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "accounts")
+
 public class Account {
 
     @Id
@@ -19,10 +24,27 @@ public class Account {
     @Column(nullable = false)
     private String password;
 
-    private String role;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "account_roles",
+            joinColumns = @JoinColumn(name = "account_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
 
-    public String getRole() {
-        return role != null ? role : "USER"; // Falls role null ist, Standardwert "USER"
+    public Long getId() {
+        return id;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public Set<Role> getRoles() {
+        return roles;
+    }
+
+    public String getPassword() {
+        return password;
+    }
 }

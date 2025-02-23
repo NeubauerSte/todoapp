@@ -1,51 +1,42 @@
 package com.example.todo.controller;
 
-import com.example.todo.model.Account;
-import com.example.todo.repository.AccountRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-
-    private final AccountRepository accountRepository;
-
-    public AuthController(AccountRepository accountRepository) {
-        this.accountRepository = accountRepository;
-    }
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @GetMapping("/check")
-    public ResponseEntity<?> checkAuth() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            return ResponseEntity.ok(false);
+    public ResponseEntity<?> checkAuth(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.ok(Collections.singletonMap("authenticated", false));
         }
 
-        if (authentication.getPrincipal() instanceof UserDetails userDetails) {
-            Optional<Account> accountOptional = accountRepository.findByUsername(userDetails.getUsername());
+        // Rollen aus der Spring Security Authentication extrahieren
+        var roles = authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority().replace("ROLE_", "")) // "ROLE_ADMIN" -> "ADMIN"
+                .toList();
 
-            if (accountOptional.isPresent()) {
-                Account account = accountOptional.get();
+        return ResponseEntity.ok( Map.of (
+                "username", authentication.getName(),
+                "roles", roles
+                                         ));
+    }
 
-                // JSON-Objekt mit relevanten Daten zurückgeben
-                Map<String, Object> userData = new HashMap<>();
-                userData.put("id", account.getId());
-                userData.put("username", account.getUsername());
-                userData.put("role", account.getRole());
-
-                return ResponseEntity.ok(userData);
-            }
+    @GetMapping("/debug")
+    public ResponseEntity<?> debugAuth(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Nicht authentifiziert");
         }
 
-        return ResponseEntity.ok(false);
+        return ResponseEntity.ok("Authentifiziert als: " + authentication.getName() + " | Rollen: " + authentication.getAuthorities());
     }
 }

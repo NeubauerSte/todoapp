@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:17
-    container_name: postgres_container
+    container_name: todo-db
     restart: always
     environment:
       POSTGRES_DB: todos
@@ -21,7 +21,7 @@ services:
 
   backend:
     build: .
-    container_name: spring_boot_container
+    container_name: todo-backend
     restart: always
     depends_on:
       db:

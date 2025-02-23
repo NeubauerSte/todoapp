@@ -1,15 +1,10 @@
 // src/components/ToDoItem.jsx
 import { ListGroup, Button } from "react-bootstrap";
 
-function ToDoItem({ todo, deleteTodo }) {
+export default function ToDoItem({ todo, deleteTodo }) {
     return (
-        <ListGroup.Item className="d-flex justify-content-between align-items-center">
+        <div className="flex justify-between items-center bg-gray-100 p-2 rounded-lg mb-2">
             <span>{todo.title}</span>
-            <Button variant="danger" size="sm" onClick={() => deleteTodo(todo.id)}>
-                ❌ Löschen
-            </Button>
-        </ListGroup.Item>
+        </div>
     );
 }
-
-export default ToDoItem;

@@ -1,26 +1,25 @@
-import { useEffect, useContext } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import Login from "../components/Login";
 import BackButton from "../components/BackButton.jsx";
 
-function LoginPage() {
+export default function LoginPage() {
     const navigate = useNavigate();
-    const { isAuthenticated } = useContext(AuthContext);
+    const { user, isAdmin, loading } = useAuth();
+    const hasRedirected = useRef(false);
 
     useEffect(() => {
-        if (isAuthenticated) {
-            setTimeout(() => navigate("/todos"), 100); // Kleiner Delay, um sicherzugehen
+        if (!loading && user && !hasRedirected.current) {
+            hasRedirected.current = true;
+            navigate(isAdmin ? "/admin" : "/todos");
         }
-    }, [isAuthenticated, navigate]);
+    }, [user, isAdmin, loading, navigate]);
 
     return (
         <div>
             <BackButton />
-            <h2>Login</h2>
-            <Login onLogin={() => navigate("/todos")} />
+            <Login onLogin={() => navigate(isAdmin ? "/admin" : "/todos")} />
         </div>
     );
 }
-
-export default LoginPage;

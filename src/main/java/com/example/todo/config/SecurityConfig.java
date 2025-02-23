@@ -1,90 +1,79 @@
 package com.example.todo.config;
 
-import com.example.todo.repository.AccountRepository;
-import com.example.todo.service.DatabaseUserDetailsService;
-import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.session.HttpSessionEventPublisher;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import static org.springframework.security.config.Customizer.withDefaults;
-import static org.springframework.security.config.http.SessionCreationPolicy.*;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        logger.info("🔐 Konfiguriere Security mit CORS & Rollen...");
+
         http
-                .cors(withDefaults())
+                .cors (cors -> cors.configurationSource ( corsConfigurationSource() ))
                 .csrf(AbstractHttpConfigurer::disable)
-                .headers(headers -> headers
-                                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable) // **X-Frame-Options deaktivieren**
-                        )
                 .authorizeHttpRequests(auth -> auth
-                                               .requestMatchers("/login", "/public/**", "/api/auth/login", "/api/auth/register", "/api/auth/check").permitAll() // <-- `/api/auth/check` hinzugefügt
-                                               .requestMatchers("/todos/**").authenticated()
-                                               .requestMatchers(new AntPathRequestMatcher("/h2-console/**")).permitAll()
+                                               .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                                               .requestMatchers("/api/todos/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                                               .requestMatchers("/api/public/**", "/api/auth/**").permitAll()
                                                .anyRequest().authenticated()
                                       )
-
-                .sessionManagement(session -> session
-                                           .sessionCreationPolicy ( IF_REQUIRED ) // **Sorgt dafür, dass Sessions immer erstellt werden**
-                                  )
-                .exceptionHandling(exception -> exception
-                                           .authenticationEntryPoint((request, response, authException) -> {
-                                               System.out.println("🚨 AUTH ERROR: " + authException.getMessage());
-                                               response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                                               response.getWriter().write("Unauthorized");
-                                           })
-                                  )
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .logout(logout -> logout
-                        .logoutUrl("/api/auth/logout") // Klar definierter API-Pfad
+                        .logoutUrl("/api/auth/logout")  // Logout-URL richtig setzen
                         .logoutSuccessHandler((request, response, authentication) -> {
-                            response.setStatus(HttpServletResponse.SC_OK);
-                            response.getWriter().write("Logout erfolgreich");
+                            response.setStatus(200); // Setzt 200 OK als Logout-Response
                         })
-                        .invalidateHttpSession(true) // Session löschen
-                        .deleteCookies("JSESSIONID") // Cookies löschen
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
                         .permitAll()
                        );
 
-
-
         return http.build();
+    }
+
+    // CORS-Konfiguration in Spring Security einbinden
+    @Bean
+    public
+    UrlBasedCorsConfigurationSource corsConfigurationSource ( ) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins ( List.of ( "http://localhost:5173" ) ); // Erlaubt das React-Frontend
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); // Erlaubt alle wichtigen Methoden
+        config.setAllowedHeaders(List.of("Content-Type", "Authorization")); // Erlaubte Header
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); // **Benutzt sichere Verschlüsselung**
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        System.out.println("✅ AuthenticationManager wird mit UserDetailsService konfiguriert!");
         return authenticationConfiguration.getAuthenticationManager();
-    }
-
-    @Bean
-    public HttpSessionEventPublisher httpSessionEventPublisher() {
-        return new HttpSessionEventPublisher(); // **Damit Spring Security Sessions trackt**
     }
 }

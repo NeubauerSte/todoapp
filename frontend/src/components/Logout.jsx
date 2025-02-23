@@ -1,26 +1,24 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import logEvent from "../utils/logEvent";
 
-const logout = async (navigate, checkAuthStatus) => {
-    try {
-        logEvent("INFO", "Logout wird ausgeführt...");
-        const response = await fetch("http://localhost:8080/api/auth/logout", {
-            method: "POST",
-            credentials: "include",
+export default function Logout() {
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        logEvent("INFO", "User wird ausgeloggt...");
+        logout().then(() => {
+            setTimeout(() => navigate("/"), 1000); // Nach 1 Sekunde weiterleiten
         });
+    }, [logout, navigate]);
 
-        if (response.ok) {
-            logEvent("SUCCESS", "Logout erfolgreich");
-            await checkAuthStatus();
-            navigate("/");
-        } else {
-            logEvent("ERROR", "Logout fehlgeschlagen");
-        }
-    } catch (error) {
-        logEvent("ERROR", "Fehler beim Logout", error);
-    }
-};
-
-export default logout;
+    return (
+        <div className="page-container logout-container">
+            <h2>Du wurdest erfolgreich ausgeloggt!</h2>
+            <p>Du wirst in Kürze zur Startseite weitergeleitet...</p>
+            <div className="spinner"></div>
+        </div>
+    );
+}
