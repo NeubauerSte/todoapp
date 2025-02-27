@@ -4,6 +4,7 @@ import com.example.todo.model.Account;
 import com.example.todo.model.Role;
 import com.example.todo.model.ToDo;
 import com.example.todo.repository.AccountRepository;
+import com.example.todo.repository.RoleRepository;
 import com.example.todo.repository.ToDoRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -22,16 +23,18 @@ import java.util.List;
 @PreAuthorize("hasAuthority('ROLE_ADMIN')")
 public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
-    private static final Long ADMIN_ROLE_ID = 2L; // 🔥 Admin-Rolle ist ID 2
+    private static final Long ADMIN_ROLE_ID = 2L; // 🔥 Admin-Rolle hat die ID 2
 
     private final AccountRepository accountRepository;
+    private final RoleRepository roleRepository;
     private final ToDoRepository toDoRepository;
 
     @PersistenceContext
-    private EntityManager entityManager; // Hibernate Cache-Kontrolle
+    private EntityManager entityManager;
 
-    public AdminController(AccountRepository accountRepository, ToDoRepository toDoRepository) {
+    public AdminController(AccountRepository accountRepository, RoleRepository roleRepository, ToDoRepository toDoRepository) {
         this.accountRepository = accountRepository;
+        this.roleRepository = roleRepository;
         this.toDoRepository = toDoRepository;
     }
 
@@ -80,31 +83,38 @@ public class AdminController {
                 .orElseThrow(() -> new RuntimeException("Benutzer nicht gefunden"));
     }
 
-    /** 🚀 Admin-Rolle hinzufügen oder entfernen mit **RAW SQL** */
+    /** 🚀 Admin-Rolle hinzufügen oder entfernen */
     @Transactional
     protected ResponseEntity<String> modifyRole(String username, Authentication authentication, boolean adding) {
         Account requestingAdmin = getAccountOrThrow(authentication.getName());
         Account targetUser = getAccountOrThrow(username);
 
-        logger.debug("📌 Benutzer '{}' hat folgende Rollen vor Änderung: {}", targetUser.getUsername(), targetUser.getRoles());
+        logger.debug("📌 Admin '{}' versucht die Rolle zu ändern für Benutzer '{}'", requestingAdmin.getUsername(), targetUser.getUsername());
+
+        Role adminRole = roleRepository.findById(ADMIN_ROLE_ID)
+                .orElseThrow(() -> new RuntimeException("❌ Admin-Rolle nicht gefunden!"));
 
         if (adding) {
-            if (targetUser.getRoles().stream().noneMatch(r -> r.getId().equals(ADMIN_ROLE_ID))) {
-                targetUser.getRoles().add(new Role(ADMIN_ROLE_ID, "ADMIN"));
+            if (!targetUser.getRoles().contains(adminRole)) {
+                targetUser.getRoles().add(adminRole);
                 accountRepository.save(targetUser);
                 entityManager.flush();
                 entityManager.clear();
-                logger.info("✅ Admin-Rolle erfolgreich zugewiesen an '{}'", targetUser.getUsername());
+                logger.info("✅ Admin '{}' hat die Admin-Rolle zugewiesen an '{}'", requestingAdmin.getUsername(), targetUser.getUsername());
                 return ResponseEntity.ok("✅ Admin-Rolle erfolgreich zugewiesen!");
+            } else {
+                return ResponseEntity.badRequest().body("❌ Benutzer hat die Admin-Rolle bereits!");
             }
         } else {
-            accountRepository.removeRoleFromUser(targetUser.getId(), ADMIN_ROLE_ID);
-            entityManager.flush();
-            entityManager.clear();
-            logger.info("✅ Admin-Rolle erfolgreich entfernt von '{}'", targetUser.getUsername());
-            return ResponseEntity.ok("✅ Admin-Rolle erfolgreich entfernt!");
+            if (targetUser.getRoles().contains(adminRole)) {
+                accountRepository.removeRoleFromUser(targetUser, adminRole);
+                entityManager.flush();
+                entityManager.clear();
+                logger.info("✅ Admin '{}' hat die Admin-Rolle entfernt von '{}'", requestingAdmin.getUsername(), targetUser.getUsername());
+                return ResponseEntity.ok("✅ Admin-Rolle erfolgreich entfernt!");
+            } else {
+                return ResponseEntity.badRequest().body("❌ Benutzer hat keine Admin-Rolle!");
+            }
         }
-
-        return ResponseEntity.badRequest().body("🚨 Fehler: Konnte Admin-Rolle nicht zuweisen/entfernen!");
     }
 }

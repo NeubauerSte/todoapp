@@ -31,6 +31,11 @@ public class RegisterController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Benutzername bereits vergeben.");
         }
 
+        // ❌ Sicherheitscheck: Niemand kann sich als "admin" registrieren!
+        if ("admin".equalsIgnoreCase(account.getUsername())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Registrierung mit diesem Benutzernamen ist nicht erlaubt.");
+        }
+
         account.setPassword(passwordEncoder.encode(account.getPassword()));
 
         // Sicherstellen, dass die USER-Rolle existiert
