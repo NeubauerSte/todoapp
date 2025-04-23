@@ -79,11 +79,6 @@ npm run dev
 
 ---
 
-## 📷 Screenshots
-
-> You can add screenshots here in the future.
-
----
 
 ## 📄 License
 
